@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="it" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Synapses 2026 | LABA Brescia</title>
+ 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+ 
+    <style>
+        :root {
+            --green:    #13AC51;
+            --blue:     #3F5099; 
+            --cyan:     #AFD6E1; 
+            --purple:   #A79ADB;
+            --yellow:   #FDC603; 
+            --orange:   #FF7230; 
+            --white:    #F2F2EF;
+            --black:    #111111; 
+        }
+ 
+        @font-face {
+            font-family: 'Adapter Mono PE';
+            src: url('fonts/AdapterMonoPE-Variable.woff2') format('woff2');
+            font-weight: 100 900;
+        }
+ 
+        body {
+            font-family: 'Adapter Mono PE', monospace;
+            background-color: var(--white);
+            color: var(--black);
+            margin: 0;
+            overflow-x: hidden;
+        }
+ 
+        /* ─── 3D SCENE ─────────────────────────────── */
+ 
+        #canvas-container { 
+            height: 100svh; 
+            width: 100%; 
+            position: relative; 
+            overflow: hidden;
+            touch-action: pan-y; /* Permette lo scroll verticale su mobile */
+            z-index: 1;
+        }
+ 
+        .card-3d {
+            backface-visibility: visible;
+            transform-style: preserve-3d;
+            padding: 50px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            pointer-events: auto;
+        }
+ 
+        #canvas-container > div {
+            pointer-events: none;
+        }
+        
+
+        .card-3d {
+            pointer-events: auto;
+        }
+                .card-3d h1 { font-weight: 900; text-transform: uppercase; line-height: 0.85; }
+                .card-3d h2 { font-weight: 600; text-transform: uppercase; line-height: 1.2; }
+                .card-3d p  { font-weight: 100; text-transform: uppercase; margin-top: 15px; line-height: 1; }
+        
+                /* ─── DAY CARD FLOAT ANIMATION ─────────────── */
+                @keyframes floatCard {
+                    0%,100% { transform: translateY(0px); }
+                    50%      { transform: translateY(-10px); }
+                }
+                .day-card {
+                    animation: floatCard 4s ease-in-out infinite;
+                    transition: box-shadow 0.3s ease;
+                }
+
+                .day-card:nth-child(2) { animation-delay: 0.7s; }
+                .day-card:nth-child(3) { animation-delay: 1.4s; }
+        
+                /* bottoni giorno: shimmer al hover */
+                .day-btn {
+                    position: relative;
+                    overflow: hidden;
+                }
+            
+        
+                /* ─── REDIRECT OVERLAY ──────────────────────── */
+                #redirect-overlay {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 9999;
+                    opacity: 0;
+                    visibility: hidden;
+                    pointer-events: none;
+                }
+        
+                /* ─── ACCORDION ────────────────────────────── */
+                .prog-item {
+                    border-bottom: 2px solid var(--black);
+                }
+        
+                /* il contenuto è nascosto di default — GSAP gestisce height e opacity */
+                .prog-content {
+                    overflow: hidden;
+                    height: 0;
+                    opacity: 0;
+                }
+        
+                /* ruota il + → × via GSAP */
+                .plus-icon {
+                    display: inline-block;
+                    line-height: 1;
+                }
+
+                /* --- SEZIONE FESTIVAL 3D RESPONSIVE --- */
+                .perspective-scene {
+                    perspective: 1500px;
+                    width: 100%;
+                    overflow: hidden; 
+                }
+
+                .planes-container-3d {
+                    transform-style: preserve-3d;
+                    position: relative;
+                    width: 100%;
+                    height: 1350px; 
+                }
+
+                @media (min-width: 768px) {
+                    .planes-container-3d {
+                        height: 700px; /* Altezza per desktop */
+                    }
+                }
+
+                .trigger-area {
+                    transform-style: preserve-3d;
+                    position: absolute;
+                    width: 85%;
+                    max-width: 320px;
+                    height: 400px;
+                    /* Centro orizzontale di default (Mobile) */
+                    left: 50% !important;
+                    transform: translateX(-50%);
+                    z-index: 5;
+                    transition: z-index 0.3s;
+                }
+
+                /* Posizionamento verticale Mobile */
+                .trigger-area:nth-child(1) { top: 0px; }
+                .trigger-area:nth-child(2) { top: 450px; }
+                .trigger-area:nth-child(3) { top: 900px; }
+
+                @media (min-width: 768px) {
+                    .trigger-area {
+                        left: auto !important;
+                        transform: none;
+                    }
+                    .trigger-area:nth-child(1) { left: 6% !important; top: 50px; }
+                    .trigger-area:nth-child(2) { left: 50% !important; top: 100px; transform: translateX(-50%); }
+                    .trigger-area:nth-child(3) { right: 6% !important; top: 50px; }
+                }
+
+                .floating-plane {
+                    pointer-events: none;
+                    transform-style: preserve-3d;
+                    height: 100%;
+                    width: 100%;
+                }
+
+                .plane-content {
+                    pointer-events: auto;
+                    backface-visibility: hidden;
+                    height: 100%;
+                    -webkit-font-smoothing: antialiased; 
+                    -moz-osx-font-smoothing: grayscale;
+                    transform: translateZ(0);           
+                    will-change: transform;            
+                    filter: blur(0);                    
+                }
+
+                /* --- CONTAINER MAPPA --- */
+                .map-container {
+                    position: relative;
+                    width: 100%;
+                    max-width: 900px;
+                    margin: 50px auto;
+                    perspective: 1000px;
+                }
+
+                .map-wrapper {
+                    position: relative;
+                    transform-style: preserve-3d;
+                    transition: transform 0.5s ease-out;
+                }
+
+                .map-img {
+                    width: 100%;
+                    height: auto;
+                    display: block;
+                    
+                }
+
+                /* Hotspot  */
+                .hotspot {
+                    position: absolute;
+                    cursor: pointer;
+                    z-index: 20;
+                    /* box-shadow: 0 0 10px rgba(17, 17, 17, 0.5);*/
+                }
+
+
+                /* rettangolo informativo */
+                #info-box {
+                    position: absolute;
+                    width: 150px;
+                    padding: 10px;
+                    background: var(--white);
+                    border-left: 6px solid var(--black);
+                    box-shadow: 20px 20px 40px rgba(0,0,0,0.2);
+                    pointer-events: none; /* Fondamentale: non deve bloccare il mouse */
+                    opacity: 0;
+                    z-index: 100;
+                    transform: translateZ(50px); /* Lo fa fluttuare sopra la mappa */
+                }
+
+                @media (min-width: 768px) {
+                    #info-box {
+                        width: 200px;
+                        padding: 15px;
+                    }
+                }
+
+    </style>
+</head>
+<body>
+ 
+<!-- ═══ REDIRECT OVERLAY ════════════════════════════════════════ -->
+<div id="redirect-overlay"></div>
+ 
+<!-- ═══ HERO 3D ══════════════════════════════════════════════════ -->
+<div id="canvas-container">
+    <div class="absolute top-8 left-8 z-[100] pointer-events-none">
+        <img src="LOGO.png" alt="Logo" class="w-32 md:w-48 h-auto object-contain pointer-events-auto">
+    </div>
+     <div class="absolute top-8 right-8 z-[100] pointer-events-none">
+        <img src="LABA.png" alt="Logo" class="w-32 md:w-32 h-auto object-contain pointer-events-auto">
+    </div>
+</div>
+    <div class="absolute bottom-8 w-full text-center z-50 uppercase text-[9px] tracking-[4px] opacity-80 pointer-events-none">
+        Trascina per esplorare • Tocca i volumi<br>Scrolla verso il basso<br><br>↓
+    </div>
+</div>
+ 
+ 
+<!-- ═══ FESTIVAL ════════════════════════════════════ -->
+<section class="max-w-6xl px-8 md:px-0 w-full max-w-6xl mx-auto pt-32 perspective-scene">
+    <h2 class="font-black text-5xl uppercase mb-16 tracking-tighter">Il Festival</h2>
+    <div class="planes-container-3d">
+        <div class="trigger-area">
+            <div class="floating-plane">
+                <div class="plane-content bg-[var(--purple)] p-8 flex flex-col relative overflow-visible">
+                    
+                    <h3 class="text-3xl font-black uppercase mb-4">Cronache Disorganiche</h3><br><br>
+                    <span class="absolute -right-6 top-28 py-2 px-8 font-black bg-[var(--black)] text-[var(--white)]">
+                        22 APRILE
+                    </span>
+                    
+                    <p class="text-xs font-light leading-relaxed mb-8 opacity-80">Esplorazione tra AI e design. Un'analisi dei processi creativi nell'era generativa.</p>
+                    <a href="#" class="mt-auto border-2 border-[var(--black)] py-3 text-center font-black uppercase text-xs hover:bg-[var(--black)] hover:text-white transition-all text-[var(--black)]">PROGRAMMA</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="trigger-area">
+            <div class="floating-plane">
+                <div class="plane-content bg-[var(--yellow)] p-8  flex flex-col">
+                   
+                    <h3 class="text-3xl font-black uppercase mb-4">Expo della Creatività</h3><br><br>
+                     <span class="absolute -right-6 top-28 py-2 px-8 font-black bg-[var(--black)] text-[var(--white)]">
+                        21 MAGGIO
+                    </span>
+                    
+                    <p class="text-xs font-light mb-8 opacity-80">Mostra collettiva dei progetti selezionati. Workshop interattivi e installazioni totem.</p>
+                    <a href="#" class="mt-auto border-2 border-[var(--black)] py-3 text-center font-black uppercase text-xs hover:bg-[var(--black)] hover:text-white transition-all text-[var(--black)]">Info Evento</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="trigger-area">
+            <div class="floating-plane">
+                <div class="plane-content bg-[var(--orange)] p-8  flex flex-col">
+                   
+                    <h3 class="text-3xl font-black uppercase mb-4">Fashion<br>Show</h3><br><br>
+                    <span class="absolute -right-6 top-28 py-2 px-8 font-black bg-[var(--black)] text-[var(--white)]">
+                        23 GIUGNO
+                    </span>
+                    <p class="text-xs font-light mb-8 opacity-80">Sfilata conclusiva degli studenti di Fashion Design. Il culmine della ricerca annuale.</p>
+                    <a href="#" class="mt-auto border-2 border-[var(--black)] py-3 text-center font-black uppercase text-xs hover:bg-[var(--black)] hover:text-white transition-all text-[var(--black)]">Info Evento</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- ═══ TIMELINE ════════════════════════════════════ -->
+ <section class="w-full pb-20">
+    <div class="max-w-6xl mx-auto px-8">
+        <h2 class="font-black text-5xl uppercase mb-16 tracking-tighter">Eventi</h2>
+ 
+        <!-- Item 01 -->
+        <div class="prog-item group">
+            <button onclick="toggleProg(this)" class="w-full py-10 flex justify-between items-center text-left group-hover:text-[#3F5099] transition-colors">
+                <div class="flex items-baseline gap-6">
+                    <h3 class="text-3xl font-black uppercase tracking-tighter">22 Aprile — Cronache Disorganiche</h3>
+                </div>
+                <span class="plus-icon text-4xl font-light">+</span>
+            </button>
+            <div class="prog-content">
+                <div class="pb-10 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm uppercase font-bold tracking-widest">
+                    <div class="space-y-4 pl-6" style="border-left:2px solid var(--blue);">
+                        <p><span class="opacity-40">14:00</span> — Apertura Showcase</p>
+                        <p><span class="opacity-40">16:00</span> — Workshop AI Design</p>
+                    </div>
+                    <div class="space-y-4 pl-6" style="border-left:2px solid var(--blue);">
+                        <p><span class="opacity-40">18:30</span> — Talk con Alberto Puliafito</p>
+                        <p><span class="opacity-40">20:30</span> — Live Concert Andy (Bluvertigo)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+ 
+        <!-- Item 02 -->
+        <div class="prog-item group">
+            <button onclick="toggleProg(this)" class="w-full py-10 flex justify-between items-center text-left group-hover:text-[#F26522] transition-colors">
+                <div class="flex items-baseline gap-6">
+                    <h3 class="text-3xl font-black uppercase tracking-tighter">21 Maggio — Expo Creatività</h3>
+                </div>
+                <span class="plus-icon text-4xl font-light">+</span>
+            </button>
+            <div class="prog-content">
+                <div class="pb-10 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm uppercase font-bold tracking-widest">
+                    <div class="space-y-4 pl-6" style="border-left:2px solid var(--orange);">
+                        <p><span class="opacity-40">10:00</span> — Inaugurazione Synapses</p>
+                        <p><span class="opacity-40">12:00</span> — Talk</p>
+                    </div>
+                    <div class="space-y-4 pl-6" style="border-left:2px solid var(--orange);">
+                        <p><span class="opacity-40">19:00</span> — DJ Set</p>
+                        <p><span class="opacity-40">21:00</span> — Chiusura </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+ 
+        <!-- Item 03 -->
+        <div class="prog-item group">
+            <button onclick="toggleProg(this)" class="w-full py-10 flex justify-between items-center text-left group-hover:text-[#F5C400] transition-colors">
+                <div class="flex items-baseline gap-6">
+                    <h3 class="text-3xl font-black uppercase tracking-tighter">23 Giugno — Fashion Show</h3>
+                </div>
+                <span class="plus-icon text-4xl font-light">+</span>
+            </button>
+            <div class="prog-content">
+                <div class="pb-10 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm uppercase font-bold tracking-widest">
+                    <div class="space-y-4 pl-6" style="border-left:2px solid var(--yellow);">
+                        <p><span class="opacity-40">21:00</span> — Fashion Show</p>
+                    </div>
+                    <div class="space-y-4 pl-6" style="border-left:2px solid var(--yellow);">
+                        <p><span class="opacity-40">23:00</span> — After Party</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-20 bg-[var(--white)]">
+    <div class="max-w-6xl mx-auto px-8">
+        <div class="flex gap-4 mb-10 border-b border-black pb-4">
+            <button onclick="updateMap(0)" class="map-btn font-black uppercase hover:text-[#F26522] transition-all">22 APRILE</button>
+            <button onclick="updateMap(1)" class="map-btn font-black uppercase opacity-30 hover:text-[#F26522] transition-all">21 MAGGIO</button>
+            <button onclick="updateMap(2)" class="map-btn font-black uppercase opacity-30 hover:text-[#F26522] transition-all">23 GIUGNO</button>
+        </div>
+
+        <div class="map-container" id="map-scope">
+            <div id="info-box">
+                <h4 class="text-sm md:text-xl font-black uppercase">Room Name</h4>
+                <p class="text-xs font-mono">Descrizione dell'evento e dettagli tecnici.</p>
+            </div>
+
+            <div class="map-wrapper" id="map-3d">
+                <img src="PIANTINA1.png" class="map-img" id="current-map-img">
+                <div id="hotspot-layer"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══ FOOTER ═══════════════════════════════════════════════════ -->
+<footer class="py-8 text-center uppercase text-[10px] text-md-[12px] font-black tracking-[0.3em]" style="background:var(--white);">
+    LABA BRESCIA © 2026
+</footer>
+ 
+<!-- ═══ SCRIPTS ══════════════════════════════════════════════════ -->
+<script>
+    /* ─── PALETTE */
+    var deg = function(v) { return v * (Math.PI / 180); };
+    var C = {
+ 
+        green:    '#13AC51', 
+        blue:     '#3F5099', 
+        cyan:     '#AFD6E1', 
+        purple:   '#A79ADB', 
+        yellow:   '#FDC603', 
+        orange:   '#FF7230', 
+        white:    '#F2F2EF',
+        black:    '#111111', 
+    };
+ 
+    var blocksConfig = [
+        /* ── 1. BACKGROUND FLOATING SHAPES ── */
+        { 
+            color: C.cyan, 
+            pos: [0, 0, -500], 
+            size: [800, 800], 
+            rot: [-90,0, -45],
+            content: '' 
+        },
+        { 
+            color: C.cyan, 
+            pos: [-400, -600, -0], 
+            size: [300, 800], 
+           rot: [0, -45, 90],
+            content: '' 
+        },
+         { 
+            color: C.cyan,
+            pos: [500, -800, 0], 
+            size: [300, 600], 
+           rot: [0, -45, 90],
+            content: '' 
+        },
+        { 
+            color: C.purple, 
+            pos: [300, -600, 400], 
+            size: [600, 400], 
+            rot: [0, 45, 0],  
+            content: '' 
+        },
+        
+        { 
+            color: C.green, 
+            pos: [-200, -500, 200], 
+            size: [400, 400], 
+            rot: [0, 45, 0],  
+            content: '' 
+        },
+        { 
+            color: C.green, 
+            pos: [-400, 50, 200], 
+            size: [600, 400], 
+            rot: [0, 45, 0],  
+            content: '' 
+        },
+        { 
+            color: C.blue, 
+            pos: [0, -350, 600], 
+            size: [750, 600],  
+            rot: [-90,0, -45],
+            content: '' 
+        },
+         { 
+            color: C.blue, 
+            pos: [0, 50, -200], 
+            size: [700, 400],  
+            rot: [-90,0, -45],
+            content: '' 
+        },
+
+
+        /* ── 3. TITOLO PRINCIPALE (SYNAPSES) ──  */
+        { 
+            color: C.yellow,   
+            pos: [-170, 500, 80], 
+            size: [400, 220], 
+            rot: [0, 45, 0], 
+            content: `
+            <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:flex-end;">
+                <h1 style="font-size:140px; line-height:1; margin:0; color:var(--black);">SYN</h1>
+            </div>`
+        },
+
+        { 
+            color: C.orange,   
+            pos: [150, 450, 100], 
+            size: [550, 220], 
+            rot: [0, -45, 0], 
+            content: `
+            <div style=" padding:0px; width:100%; height:100%; display:flex; align-items:center; justify-content:flex-start;">
+                <h1 style="font-size:140px; line-height:1; margin:0; color:var(--black);">APSES</h1>
+            </div>`
+        },
+
+        /* ── 4. EVENTO 1: PURPLE (CRONACHE DISORGANICHE) ──  */
+        { 
+            color: C.purple, 
+            pos: [-350, 0, 300],   
+            size: [600, 400],  
+            rot: [0, 45, 0],  
+            url: 'https://synapses.laba.edu/cronache-disorganiche/',
+            content: `
+            <div style="display:flex; flex-direction:column; text-align:left;">
+              <h1 style="font-size:60px;">CRONACHE<br>DISORGANICHE</h1>
+              <p style="font-size:30px;font-weight:600; ">INCROCI CREATIVI</p>
+              <br><br><br><br>
+              <p style="font-size:30px; font-weight:900;">ACCADEMIA LABA E MITA</p>
+            </div>`
+        },
+        { 
+            color: C.black,   
+            pos: [-520, -50, 520],   
+            size: [350, 50], 
+            rot: [0, 45, 0], 
+            content: `
+            <div style="width:100%; height:100%; padding:0px; display:flex; align-items:center;">
+                <h1 style="font-size:30px; color:var(--white);">22 APRILE</h1>
+            </div>`
+        },
+        /* ── 5. EVENTO 2: YELLOW (EXPO DELLA CREATIVITÀ) ── */
+        { 
+            color: C.yellow,   
+            pos: [50, 25,200],    
+            size: [550, 500],  
+            rot: [0, -45, 0],    
+            url: 'https://synapses.laba.edu/expo/',
+            content: `
+            <div style=" display:flex; flex-direction:column; text-align:right;">
+              <h1 style="font-size:60px; ">EXPO DELLA<br>CREATIVITÀ</h1>
+             <br><br><br><br>
+              <p style="font-size:30px; font-weight:900;">ACCADEMIA LABA</p>
+              <p style="font-size:30px; font-weight:600;">VIA DON G. VENDER, 66<br>BRESCIA</p>
+              <p style="font-size:30px; font-weight:900;">14:00 - 18:00</p>
+            </div>`
+        },
+        { 
+            color: C.black,   
+            pos: [250, 50,425],    
+            size: [350, 50], 
+            rot: [0, -45, 0],  
+            content: `
+            <div style="width:100%; height:100%; padding:0px; display:flex; align-items:center;">
+                <h1 style="font-size:30px; color:var(--white);">21 MAGGIO</h1>
+            </div>`
+        },
+        /* ── 6. EVENTO 3: ORANGE (THE FASHION SHOW) ── */
+          
+        { 
+            color: C.orange,   
+            pos: [0, -300, 600], 
+            size: [550, 600],  
+            rot: [-90,0, -45], 
+            url: 'https://synapses.laba.edu/fashion-show/',
+            content: `
+            <div style="display:flex; flex-direction:column; justify-content:center; text-align:left;">
+               <p style="font-size:30px; font-weight:900;">PROSOPON</p>
+               <p style="font-size:30px; font-weight:600;">4 VOLTI DELLA DONNA</p>
+               <h1 style="font-size:60px;">THE FASHION<br>SHOW</h1>
+                 <br><br><br><br>
+               <p style="font-size:30px; font-weight:900;">BRIXIA FORUM</p>
+               <p style="font-size:30px; font-weight:600;">VIA PRIVATA<br>DE VITALIS, 1 BRESCIA</p>
+               <p style="font-size:30px; font-weight:900;">14:00 - 18:00</p>
+            </div>`
+        },
+
+         { 
+            color: C.black,   
+              pos: [125, -275, 700],   
+            size: [350, 50], 
+            rot: [-90,0, -45],
+            content: `
+            <div style="width:100%; height:100%; padding:0px; display:flex; align-items:center;">
+                <h1 style="font-size:30px; color:var(--white);">23 GIUGNO</h1>
+            </div>`
+        },
+    ];
+    var scene, camera, renderer, pivot, group;
+    var isFocused = false, isMouseDown = false, px, py;
+    var isMobile = window.innerWidth < 768;
+ 
+    function init() {
+        scene  = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+        camera.position.z = isMobile ? 5500 : 3000;
+
+        renderer = new THREE.CSS3DRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+       
+        pivot = new THREE.Group();
+        pivot.position.y = 200; 
+        
+
+        group = new THREE.Group();
+        scene.add(pivot);
+        pivot.add(group);
+ 
+        blocksConfig.forEach(function(data) {
+            var el = document.createElement('div');
+            el.className = 'card-3d';
+            el.style.width           = data.size[0] + 'px';
+            el.style.height          = data.size[1] + 'px';
+            el.style.backgroundColor = data.color;
+            el.innerHTML             = data.content;
+ 
+            var obj = new THREE.CSS3DObject(el);
+            obj.position.set(data.pos[0], data.pos[1], data.pos[2]);
+            obj.rotation.set(deg(data.rot[0]), deg(data.rot[1]), deg(data.rot[2]));
+            el.onclick = function() { if (!isMouseDown) redirectWithAnim(data.url, data.color); };
+            group.add(obj);
+        });
+ 
+        window.addEventListener('pointerdown', function(e) {
+            if (e.target.closest('#canvas-container')) { isMouseDown = true; px = e.clientX; py = e.clientY; }
+        });
+        window.addEventListener('pointermove', function(e) {
+            if (!isMouseDown || isFocused) return;
+            pivot.rotation.y += (e.clientX - px) * 0.003;
+            pivot.rotation.x += (e.clientY - py) * 0.003;
+            px = e.clientX; py = e.clientY;
+        });
+        window.addEventListener('pointerup', function() { isMouseDown = false; });
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+ 
+        animate();
+    }
+ 
+    /* ─── REDIRECT CON ANIMAZIONE ────────────────────────────────── */
+    function redirectWithAnim(url, color) {
+        if (!url) return;
+        var overlay = document.getElementById('redirect-overlay');
+        overlay.style.background = color;
+ 
+      
+        gsap.set(overlay, { 
+            autoAlpha: 0, 
+            scale: 0,
+            borderRadius: '50%',
+            transformOrigin: 'center center'
+        });
+        gsap.to(overlay, {
+            autoAlpha: 1,
+            scale: 4,
+            duration: 0.5,
+            ease: 'power3.in',
+            onComplete: function() {
+                gsap.to(overlay, {
+                    borderRadius: '0%',
+                    scale: 1,
+                    duration: 0.25,
+                    ease: 'none',
+                    onComplete: function() {
+                        window.location.href = url;
+                    }
+                });
+            }
+        });
+    }
+ 
+    function animate() {
+        requestAnimationFrame(animate);
+        if (!isMouseDown && !isFocused) pivot.rotation.y += 0.003;
+        renderer.render(scene, camera);
+    }
+ 
+    /* ─── ACCORDION con GSAP ─────────────────────────────────────
+       
+    ─────────────────────────────────────────────────────────── */
+    var currentItem = null; 
+ 
+    function toggleProg(btn) {
+        var item    = btn.closest('.prog-item');
+        var content  = item.querySelector('.prog-content');
+        var icon     = btn.querySelector('.plus-icon');
+        var isOpen   = item.classList.contains('active');
+
+        
+        if (currentItem && currentItem !== item) {
+            var prevContent = currentItem.querySelector('.prog-content');
+            var prevIcon    = currentItem.querySelector('.plus-icon');
+            currentItem.classList.remove('active');
+            
+            
+            gsap.to(prevContent, { height: 0, opacity: 0, duration: 0.3, ease: 'power4.inOut' });
+            gsap.to(prevIcon,    { rotation: 0, duration: 0.25, ease: 'power2.out' });
+        }
+
+        if (isOpen) {
+            /* Chiudi */
+            item.classList.remove('active');
+            gsap.to(content, { height: 0, opacity: 0, duration: 0.3, ease: 'power4.inOut' });
+            gsap.to(icon,    { rotation: 0, duration: 0.25, ease: 'power2.out' });
+            currentItem = null;
+        } else {
+            /* Apri */
+            item.classList.add('active');
+            // Usiamo 'expo.out' che parte velocissimo e si ferma subito
+            gsap.to(content, { 
+                height: 'auto', 
+                opacity: 1, 
+                duration: 0.4, // Da 0.55 a 0.4
+                ease: 'expo.out', 
+                overwrite: true 
+            });
+            gsap.to(icon, { rotation: 45, duration: 0.25, ease: 'back.out(2)' });
+            currentItem = item;
+        }
+    }
+ 
+    init();
+
+    // ─── ANIMAZIONE DI HOVER SUI PIANI 3D ─────────────────────────────
+    const festivalTriggers = document.querySelectorAll('.trigger-area');
+    const isMobileDevice = window.innerWidth < 768;
+
+    // Configurazioni
+    const festivalConfigs = isMobileDevice ? [
+        { rotX: 10, rotY: -5,  rotZ: -2, z: 0 },
+        { rotX: -8, rotY: 8,   rotZ: 2,  z: 0 },
+        { rotX: 5,  rotY: -10, rotZ: 3,  z: 0 }
+    ] : [
+        { rotX: 15, rotY: -25, rotZ: -10, z: -100 },
+        { rotX: -10, rotY: 15, rotZ: -5,  z: 50 },
+        { rotX: 25, rotY: 10, rotZ: 5, z: -100 }
+    ];
+
+    festivalTriggers.forEach((trigger, i) => {
+    const plane = trigger.querySelector('.floating-plane');
+    const conf = festivalConfigs[i];
+
+    // Setup iniziale
+    gsap.set(plane, { 
+        rotationX: conf.rotX, 
+        rotationY: conf.rotY, 
+        rotationZ: conf.rotZ, 
+        z: conf.z 
+    });
+
+    // Animazione di floating
+    const bounce = gsap.to(plane, {
+        y: isMobileDevice ? 10 : 20,
+        rotationX: "+=3",
+        duration: 3 + i,
+        yoyo: true,
+        repeat: -1,
+        ease: "sine.inOut"
+    });
+
+    // Eventi Hover/Touch
+    const activate = () => {
+        bounce.pause();
+        trigger.style.zIndex = "100";
+        
+        let moveX = 0;
+        if(!isMobileDevice) {
+            if(i === 0) moveX = 30;
+            if(i === 2) moveX = -30;
+        }
+
+        gsap.to(plane, {
+            rotationX: 0, 
+            rotationY: 0, 
+            rotationZ: 0,
+            x: moveX,
+            z: isMobileDevice ? 50 : 200, 
+            scale: 1, // Lo teniamo a 1 per evitare sfocature
+            duration: 0.5,
+            ease: "expo.out"
+        });
+    };
+    const deactivate = () => {
+        trigger.style.zIndex = "5";
+        gsap.to(plane, {
+            rotationX: conf.rotX, rotationY: conf.rotY, rotationZ: conf.rotZ,
+            z: conf.z, scale: 1,
+            duration: 0.6,
+            ease: "power2.inOut",
+            onComplete: () => bounce.play()
+        });
+    };
+
+    trigger.addEventListener('mouseenter', activate);
+    trigger.addEventListener('mouseleave', deactivate);
+    
+    // Per mobile: un tocco raddrizza, un secondo tocco permette di cliccare il link
+    trigger.addEventListener('touchstart', activate, {passive: true});
+    });
+
+    // MAPPE
+    const mapData = [
+        {
+            img: "PIANTINA1.png",
+            locations: [
+                { top: '50%', left: '40%', w: '10%', h: '20%', name: '1', desc: '.' },
+                { top: '50%', left: '68%', w: '10%', h: '20%', name: '2', desc: '.' },
+                { top: '36%', left: '75%', w: '10%', h: '20%', name: '3', desc: '.' },
+                { top: '25%', left: '87%', w: '10%', h: '20%', name: '4', desc: '.' },
+                { top: '5%', left: '50%', w: '20%', h: '20%', name: '5', desc: '.' },
+                { top: '30%', left: '55%', w: '18%', h: '20%', name: '6', desc: '.' },
+                { top: '30%', left: '45%', w: '7%', h: '7%', name: '7', desc: '.' },
+                { top: '70%', left: '5%', w: '20%', h: '25%', name: '8', desc: '.' },
+            ]
+        },
+        {
+            img: "PIANTINA2.png", 
+            locations: [
+                { top: '40%', left: '20%', w: '20%', h: '30%', 
+                name: '1', 
+                desc: '.' }
+            ]
+        },
+
+        {
+            img: "PIANTINA3.png", 
+            locations: [
+                { top: '40%', left: '20%', w: '30%', h: '40%', name: '1', desc: '.' }
+            ]
+        }
+    ];
+
+    const infoBox = document.getElementById('info-box');
+    const mapWrapper = document.getElementById('map-3d');
+
+    function updateMap(index) {
+        const data = mapData[index];
+        document.getElementById('current-map-img').src = data.img;
+        
+        //opacità bottoni
+        document.querySelectorAll('.map-btn').forEach((b, i) => b.classList.toggle('opacity-30', i !== index));
+
+        const layer = document.getElementById('hotspot-layer');
+        layer.innerHTML = ''; 
+
+        data.locations.forEach(loc => {
+            const hs = document.createElement('div');
+            hs.className = 'hotspot';
+            hs.style.cssText = `top:${loc.top}; left:${loc.left}; width:${loc.w}; height:${loc.h};`;
+            
+            hs.addEventListener('mouseenter', (e) => {
+                infoBox.querySelector('h4').innerText = loc.name;
+                infoBox.querySelector('p').innerText = loc.desc;
+                gsap.to(infoBox, { opacity: 1, scale: 1, duration: 0.3 });
+            });
+
+            hs.addEventListener('mouseleave', () => {
+                gsap.to(infoBox, { opacity: 0, scale: 0.9, duration: 0.2 });
+            });
+
+            layer.appendChild(hs);
+        });
+    }
+
+    // Inseguimento Mouse
+    document.getElementById('map-scope').addEventListener('mousemove', (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left + 20;
+        const y = e.clientY - rect.top - 20;
+
+        gsap.to(infoBox, {
+            left: x,
+            top: y,
+            duration: 0.4,
+            ease: "power2.out"
+        });
+    });
+
+    updateMap(0);
+</script>
+</body>
+</html>
